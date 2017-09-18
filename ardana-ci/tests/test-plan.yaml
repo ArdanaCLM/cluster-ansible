@@ -675,7 +675,7 @@
   logfile: add.log
   prefix: add-nodes
   exec:
-    - add-node-test.bash server3 192.168.10.5 SERVER3-ROLE RACK2 8a:8e:64:55:43:76 192.168.9.5 cluster1
+    - add-node-test.bash server3 192.168.110.5 SERVER3-ROLE RACK2 8a:8e:64:55:43:76 192.168.109.5 cluster1
 
 - name: run-cp
   logfile: remove.log
