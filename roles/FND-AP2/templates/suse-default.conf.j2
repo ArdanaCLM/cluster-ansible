@@ -1,5 +1,6 @@
+{#
 #
-# (c) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
+# (c) Copyright 2017 Hewlett Packard Enterprise Development LP
 # (c) Copyright 2017 SUSE LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -14,11 +15,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 #
-# check_upgraded_pkgs playbook
----
-- name: FND-AP2 | check_upgraded_pkgs | Check upgraded packages
-  debug:
-    msg: "Notify change in apache package dependency - {{ item }}"
-  when: item in ardana_upgraded_pkgs | default({})
-  with_items: apache2_packages
-  register: ardana_notify_apache2_restart_required
+#}
+<Directory "/var/www">
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        <IfModule !mod_access_compat.c>
+                Require all granted
+        </IfModule>
+        <IfModule mod_access_compat.c>
+                Order allow,deny
+                Allow from all
+        </IfModule>
+</Directory>

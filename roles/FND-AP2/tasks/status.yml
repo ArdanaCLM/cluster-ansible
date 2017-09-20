@@ -1,5 +1,5 @@
 #
-# (c) Copyright 2015-2016 Hewlett Packard Enterprise Development LP
+# (c) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
 # (c) Copyright 2017 SUSE LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,34 +15,31 @@
 # under the License.
 #
 ---
-- name: FND-AP2 | status | Check if a2query exists
+- name: FND-AP2 | status | Check if apache2ctl exists
   stat:
-    path: /usr/sbin/a2query
-  register: _apache2_query_result
+    path: /usr/sbin/apache2ctl
+  register: _apache2ctl_stat_result
 
 - name:  FND-AP2 | status | Check if any sites enabled
-  command: a2query -q -s
+  command: "apache2ctl -t -D DUMP_VHOSTS"
   become: yes
   register: _apache2_sites_result
-  when: _apache2_query_result.stat.exists
-  failed_when: (_apache2_sites_result | failed) and
-                _apache2_sites_result.rc != 32
+  when: _apache2ctl_stat_result.stat.exists
 
 - name:  FND-AP2 | status | Indicate Sites configured
   debug:
     msg: "Apache has Sites configured"
   when: _apache2_sites_result is defined and
-        (_apache2_sites_result | success)
+        (_apache2_sites_result.stdout_lines | length > 1)
 
 - name: FND-AP2 | status | Set sites enabled to True
   set_fact:
     apache2_sitesenabled: True
   when: _apache2_sites_result is defined and
-        (_apache2_sites_result | success)
+        (_apache2_sites_result.stdout_lines | length > 1)
 
 - name: FND-AP2 | status | Check system service running
   command: systemctl status "{{ apache2_service }}"
-  changed_when: false
   changed_when: false
   register: _apache2_status_result
   when: apache2_sitesenabled == True

@@ -1,5 +1,5 @@
 #
-# (c) Copyright 2015-2016 Hewlett Packard Enterprise Development LP
+# (c) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
 # (c) Copyright 2017 SUSE LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -14,67 +14,169 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 #
-# Configure the apache service
+# Apache2 global conf
 ---
 - name: FND-AP2 | configure | Disable default port listeners
   become: yes
   replace:
-    dest: /etc/apache2/ports.conf
+    dest: "{{ apache2_listen_conf }}"
     regexp: '^((?!#).)*(Listen[ ]+.*)' # noqa
     replace: '# \2'
   register: ardana_notify_apache2_restart_required
 
-- name: FND-AP2 | configure | Disable the default sites
-  become: yes
-  command: a2dissite {{ item }}
-  with_items:
-    - 000-default
-    - default-ssl
-  register: disable_result
-
-# Check to see if apache2 needs to be restarted.
-# Should only restart when disable site is a success above
-# and if already disabled doesn't show in stdout.
-- name: FND-AP2 | configure | Check if restart is needed
-  become: yes
-  debug:
-    msg: "Checking disable_result to see if an apache restart is needed"
-  when: (item | success) and
-        ('already disabled' not in item.stdout)
-  with_items: disable_result.results
-  register: ardana_notify_apache2_restart_required
-
-# needed because there was a bug in configure where a conf was being
-# copied directly into sites-enabled. can remove this section in future
-# version
-- name: FND-AP2 | configure | stat deployer_venv_server.conf
-  stat:
-    path: /etc/apache2/sites-available/deployer_venv_server.conf
-  register: _deployer_venv_conf_correct_result
-
-- name: FND-AP2 | configure | stat deployer_venv_server.conf
-  stat:
-    path: /etc/apache2/sites-enabled/deployer_venv_server.conf
-  register: _deployer_venv_conf_result
-
-- name: FND-AP2 | configure | delete deployer_venv_server.conf
-  become: yes
-  file:
-    path: /etc/apache2/sites-enabled/deployer_venv_server.conf
-    state: absent
-  when: _deployer_venv_conf_result.stat.exists and
-        not _deployer_venv_conf_correct_result.stat.exists and
-        FND_AP2_sites_enabled is defined
-##########
-
-- name: FND-AP2 | configure | Set maxrequestworkers
+# This matches the keystone status play, that we use to check that
+# keystone comes up.
+- name: FND-AP2 | configure | Increase timeout
   become: yes
   lineinfile:
-    line: "	MaxRequestWorkers {{ max_request_workers }}"
+    line: "Timeout {{ apache2_timeout }}"
+    regexp: "^Timeout [0-9]+"
+    dest: "{{ apache2_global_conf }}"
+    state: present
+  register: ardana_notify_apache2_reload_required
+
+- name: FND-AP2 | configure | Debian - Set loglevel
+  become: yes
+  lineinfile:
+    line: "LogLevel {{ apache2_loglevel }}"
+    regexp: "^LogLevel"
+    dest: "/etc/apache2/apache2.conf"
+    state: present
+  register: ardana_notify_apache2_reload_required
+  when: ansible_os_family == 'Debian'
+
+- name: FND-AP2 | configure | Suse - Set loglevel
+  become: yes
+  lineinfile:
+    line: 'APACHE_LOGLEVEL="{{ apache2_loglevel }}"'
+    regexp: "^APACHE_LOGLEVEL=.*"
+    dest: /etc/sysconfig/apache2
+    state: present
+  register: ardana_notify_apache2_reload_required
+  when: ansible_os_family == 'Suse'
+
+# Apache2 modules
+
+# These lines are a workaround for apache problem
+# identified in KEYSTONE-297
+- name:  FND-AP2 | configure | Debian - disable mpm_event
+  become: yes
+  apache2_module:
+    name: mpm_event
+    state: absent
+  register: ardana_notify_apache2_restart_required
+  when: ansible_os_family == 'Debian'
+
+- name:  FND-AP2 | configure | Debian - enable mpm_worker
+  become: yes
+  apache2_module:
+    name: mpm_worker
+    state: present
+  register: ardana_notify_apache2_restart_required
+  when: ansible_os_family == 'Debian'
+
+- name: FND-AP2 | configure | Suse - switch to mpm_worker
+  become: yes
+  lineinfile:
+    line: 'APACHE_MPM="worker"'
+    regexp: "^APACHE_MPM=.*"
+    dest: /etc/sysconfig/apache2
+    state: present
+  register: ardana_notify_apache2_reload_required
+  when: ansible_os_family == 'Suse'
+
+# Suse may have proxy_http module listed before proxy. This causes errors
+# while loading modules
+- name:  FND-AP2 | configure | Suse - check proxy module load order
+  become: yes
+  shell: |
+    grep -E 'proxy_http .*proxy' /etc/sysconfig/apache2 \
+    && a2dismod proxy_http \
+    || true
+  args:
+    executable: /bin/bash
+  when: ansible_os_family == 'Suse'
+
+# apache_module does not set 'changed' attribute correctly under Suse, because
+# a2enmod output format differs from Debian version
+- name:  FND-AP2 | configure | Enable apache modules
+  become: yes
+  shell_changed_regexp:
+    command: "a2enmod {{ item }}"
+    unchanged_regexp: " already "
+  with_items: apache2_modules
+  register: ardana_notify_apache2_restart_required
+
+# Update config for mpm_worker
+- name: FND-AP2 | configure | Debian - set MaxRequestWorkers
+  become: yes
+  lineinfile:
+    line: "\tMaxRequestWorkers {{ max_request_workers }}"
     regexp: "MaxRequestWorkers"
     dest: "/etc/apache2/mods-available/mpm_worker.conf"
     state: present
   register: ardana_notify_apache2_reload_required
+  when: ansible_os_family == 'Debian'
+
+- name: FND-AP2 | configure | Suse - set MaxClients
+  become: yes
+  replace:
+    replace: "\tMaxClients          {{ max_request_workers }}"
+    regexp: "^\\s*MaxClients\\s+[0-9]+$"
+    dest: "/etc/apache2/server-tuning.conf"
+  register: ardana_notify_apache2_reload_required
+  when: ansible_os_family == 'Suse'
+
+# Apache sites
+- name: FND-AP2 | configure | Debian - disable the default sites
+  become: yes
+  shell_changed_regexp:
+    command: "a2dissite {{ item }}"
+    unchanged_regexp: " already "
+  with_items:
+    - 000-default
+    - default-ssl
+  register: ardana_notify_apache2_restart_required
+  when: ansible_os_family == 'Debian'
+
+- name: FND-AP2 | configure | Suse - disable the default site
+  become: yes
+  lineinfile:
+    line: '# Include /etc/apache2/default-server.conf'
+    regexp: '^#?\s*Include\s+/etc/apache2/default-server\.conf'
+    dest: /etc/apache2/httpd.conf
+    state: present
+  register: ardana_notify_apache2_reload_required
+  when: ansible_os_family == 'Suse'
+
+- name: FND-AP2 | configure | Suse - include conf files in conf.d
+  become: yes
+  lineinfile:
+    line: 'IncludeOptional /etc/apache2/conf.d/*.conf'
+    regexp: '^\s*IncludeOptional\s+/etc/apache2/conf\.d/\*\.conf'
+    dest: /etc/apache2/httpd.conf
+    state: present
+  register: ardana_notify_apache2_reload_required
+  when: ansible_os_family == 'Suse'
+
+- name: FND-AP2 | configure | Suse - include conf files in sites-enabled
+  become: yes
+  lineinfile:
+    line: 'IncludeOptional /etc/apache2/sites-enabled/*.conf'
+    regexp: '^\s*IncludeOptional\s+/etc/apache2/sites-enabled/\*\.conf'
+    dest: /etc/apache2/httpd.conf
+    state: present
+  register: ardana_notify_apache2_reload_required
+  when: ansible_os_family == 'Suse'
+
+- name: FND-AP2 | configure | Suse - set default site permissions
+  become: yes
+  template:
+    dest: /etc/apache2/conf.d/default.conf
+    src: suse-default.conf.j2
+    mode: 0644
+  register: ardana_notify_apache2_reload_required
+  when: ansible_os_family == 'Suse'
 
 - name: FND-AP2 | configure | Add any sites to be enabled
   become: yes
@@ -87,87 +189,8 @@
 
 - name: FND-AP2 | configure | enable sites
   become: yes
-  command: a2ensite "{{ item.key }}"
+  shell_changed_regexp:
+    command: a2ensite "{{ item.key }}"
+    unchanged_regexp: " already "
   register: ardana_notify_apache2_restart_required
-  changed_when: (ardana_notify_apache2_restart_required | success) and
-                ('already enabled' not in
-                    ardana_notify_apache2_restart_required.stdout)
   with_dict: FND_AP2_sites_enabled | default({})
-
-# This matches the keystone status play, that we use to check that
-# keystone comes up.
-- name: FND-AP2 | configure | Increase timeout
-  become: yes
-  lineinfile:
-    line: "Timeout {{ apache2_timeout }}"
-    regexp: "^Timeout [0-9]+"
-    dest: /etc/apache2/apache2.conf
-    state: present
-  register: ardana_notify_apache2_reload_required
-
-- name: FND-AP2 | configure | Set loglevel
-  become: yes
-  lineinfile:
-    line: "LogLevel {{ apache2_loglevel }}"
-    regexp: "^LogLevel"
-    dest: /etc/apache2/apache2.conf
-    state: present
-  register: ardana_notify_apache2_reload_required
-
-# These lines are a workaround for apache problem
-# identified in KEYSTONE-297
-
-- name:  FND-AP2 | configure | Disable mpm_event
-  become: yes
-  apache2_module:
-    name: mpm_event
-    state: absent
-  register: ardana_notify_apache2_restart_required
-
-- name:  FND-AP2 | configure | Enable mpm_worker
-  become: yes
-  apache2_module:
-    name: mpm_worker
-    state: present
-  register: ardana_notify_apache2_restart_required
-
-- name: FND-AP2 | configure | Install modwsgi dependencies
-  become: yes
-  apt:
-    state: latest
-    name: "{{ item }}"
-  with_items:
-    - libapache2-mod-wsgi
-    - libapache2-mod-shib2
-
-# We always use wsgi
-- name:  FND-AP2 | configure | Enable wsgi module in apache
-  become: yes
-  apache2_module:
-    state: present
-    name: wsgi
-  register: ardana_notify_apache2_restart_required
-
-# Keystone requires shib2 module
-- name:  FND-AP2 | configure | Enable shib module in apache
-  become: yes
-  apache2_module:
-    state: present
-    name: shib2
-  register: ardana_notify_apache2_restart_required
-
-# Include mod_proxy for proxying Apache Kibana requests to nodeJS server
-- name:  FND-AP2 | configure | Enable proxy module in apache
-  become: yes
-  apache2_module:
-    state: present
-    name: proxy
-  register: ardana_notify_apache2_restart_required
-
-# Include proxy_http proxying Apache Kibana requests to nodeJS server
-- name:  FND-AP2 | configure | Enable proxy_http module in apache
-  become: yes
-  apache2_module:
-    state: present
-    name: proxy_http
-  register: ardana_notify_apache2_restart_required

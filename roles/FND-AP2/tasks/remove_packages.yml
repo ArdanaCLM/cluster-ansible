@@ -1,5 +1,5 @@
 #
-# (c) Copyright 2016 Hewlett Packard Enterprise Development LP
+# (c) Copyright 2016-2017 Hewlett Packard Enterprise Development LP
 # (c) Copyright 2017 SUSE LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,8 +15,15 @@
 # under the License.
 #
 ---
-# Purge old major packages if they are there
 - name: FND-AP2 | remove_packages | Remove Apache packages
+  become: yes
+  package:
+    name:  "{{ item }}"
+    state: absent
+  with_items: apache2_packages
+
+# Purge old major packages if they are there
+- name: FND-AP2 | remove_packages | Purge Apache packages
   become: yes
   apt:
     name:  "{{ item }}"
@@ -24,9 +31,8 @@
     state: absent
     purge: yes
     force: yes
-  with_items:
-    - apache2
-    - apache2-bin
+  with_items: apache2_packages
+  when: ansible_os_family == 'Debian'
 
 # Autoremove dependent packages (Not yet supported by the apt module)
 #  https://github.com/ansible/ansible-modules-core/issues/1976
@@ -35,6 +41,7 @@
   shell: /usr/bin/apt-get -y autoremove apache2
   environment:
     DEBIAN_FRONTEND: noninteractive
+  when: ansible_os_family == 'Debian'
 
 # Directories left behind after this are
 #  /var/www/html/etc/apache2/sites-enabled

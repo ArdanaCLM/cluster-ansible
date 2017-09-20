@@ -1,6 +1,6 @@
 {#
 #
-# (c) Copyright 2015 Hewlett Packard Enterprise Development LP
+# (c) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
 # (c) Copyright 2017 SUSE LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -39,8 +39,13 @@ Listen "{{ apache2_listen_address }}:{{ item.value.port }}"
     # modules, e.g.
     #LogLevel info ssl:warn
 
+{% if ansible_os_family == 'Suse' %}
+    ErrorLog /var/log/apache2/error_log
+    CustomLog /var/log/apache2/access_log combined
+{% else %}
     ErrorLog ${APACHE_LOG_DIR}/error.log
     CustomLog ${APACHE_LOG_DIR}/access.log combined
+{% endif %}
 
     # For most configuration files from conf-available/, which are
     # enabled or disabled at a global level, it is possible to
@@ -54,6 +59,8 @@ Listen "{{ apache2_listen_address }}:{{ item.value.port }}"
         Options Indexes FollowSymLinks
         AllowOverride None
         Require all granted
+        Order allow,deny
+        Allow from all
 </Directory>
 
 # vim: syntax=apache ts=4 sw=4 sts=4 sr noet
