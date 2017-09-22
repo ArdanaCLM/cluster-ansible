@@ -1,0 +1,708 @@
+#
+# (c) Copyright 2016 Hewlett Packard Enterprise Development LP
+# (c) Copyright 2017 SUSE LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+---
+# note: aptitude is not installed at this point and is installed as part of these tests
+
+- name: get apache version
+  exec:
+    - echo `/usr/bin/apt-cache policy apache2-bin |grep Installed |awk '{print "apache2-bin " $2}'` >/tmp/cluversions
+
+- name: get haproxy version
+  exec:
+    - echo `/usr/bin/apt-cache policy haproxy |grep Installed |awk '{print "haproxy " $2}'` >>/tmp/cluversions
+
+- name: get keepalived version
+  exec:
+    - echo ` /usr/bin/apt-cache policy keepalived |grep Installed |awk '{print "keepalived " $2}'` >>/tmp/cluversions
+
+- name: remove-apache
+  logfile: testsuite-remove.log
+  prefix: remove
+  playbooks:
+    - FND-AP2-remove.yml -e automate=true
+
+- name: move apt repos
+  logfile: testsuite-remove.log
+  prefix: move
+  exec:
+    - sed -e 's/RUN-HOSTS/FND-AP2/g' -i ~/ardana-ci-tests/move-sources.list.yml
+    - copy.bash move-sources.list.yml
+    - sed -e 's/FND-AP2/RUN-HOSTS/g' -i ~/ardana-ci-tests/move-sources.list.yml
+
+- name: update apt repo
+  logfile: testsuite-upgrade.log
+  prefix: remove
+  exec:
+    - sed -e 's/RUN-HOSTS/FND-AP2/g' -i ~/ardana-ci-tests/change-repo.yml
+    - copy.bash change-repo.yml repo=2016/ardana4.0_alpha-3
+    - sed -e 's/FND-AP2/RUN-HOSTS/g' -i ~/ardana-ci-tests/change-repo.yml
+
+# This cleanups python and force installs the version in the older repo
+# to facilitate downgrade for this test
+- name: cleanup-python
+  logfile: testsuite-remove.log
+  prefix: cleanup-python
+  exec:
+    - sed -e 's/RUN-HOSTS/FND-AP2/g' -i ~/ardana-ci-tests/cleanup-python.yml
+    - copy.bash cleanup-python.yml python_version_available=2.7.9-2
+    - sed -e 's/RUN-HOSTS/FND-AP2/g' -i ~/ardana-ci-tests/cleanup-python.yml
+
+- name: deploy apache ardana4.0_alpha-3
+  logfile: testsuite-upgrade.log
+  prefix: deploy-early-apache
+  playbooks:
+    - FND-AP2-deploy.yml
+
+- name: Create Deployer site info
+  logfile: testsuite-enablesite.log
+  prefix: enablesite
+  exec:
+    - copy.bash create-apache-deployer-conf.yml
+
+- name: test apache version
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  exec:
+    - validate-version.bash apache2-bin  2.4.10-10+deb8u1
+
+- name: change apt-repo
+  logfile: testsuite-upgrade.log
+  prefix: change-apt-repo
+  exec:
+    - sed -e 's/RUN-HOSTS/FND-AP2/g' -i ~/ardana-ci-tests/restore-sources.list.yml
+    - copy.bash restore-sources.list.yml
+    - sed -e 's/FND-AP2/RUN-HOSTS/g' -i ~/ardana-ci-tests/restore-sources.list.yml
+
+- name: test major pre upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-AP2-pre-upgrade.yml --limit *c0*
+
+- name: Run base upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - _ardana-upgrade-base.yml --limit *c0*
+
+- name: test  upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-AP2-upgrade.yml --limit *c0*
+
+- name: test major post upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-AP2-post-upgrade.yml --limit *c0*
+
+# Look for apache2-bin to avoid apache lib stuff
+- name: test apache version
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  exec:
+    - validate-orig-version.bash apache2-bin
+
+- name: test major pre upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-AP2-pre-upgrade.yml
+
+- name: Run base upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - _ardana-upgrade-base.yml
+
+- name: test  upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-AP2-upgrade.yml
+
+# Look for apache2-bin to avoid apache lib stuff
+- name: test apache version
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  exec:
+    - validate-orig-version.bash apache2-bin
+
+- name: test major post upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-AP2-post-upgrade.yml
+
+# Now test FND-CLU - haproxy test
+
+- name: remove-cluster
+  logfile: testsuite-remove.log
+  prefix: remove
+  playbooks:
+    - FND-CLU-remove.yml -e automate=true
+
+#This is a workaround for missing dependency for keepalived
+# in earlier kits.
+- name: workaround-install-snmp
+  logfile: testsuite-remove.log
+  prefix: workaround-install-snmp
+  exec:
+    - copy.bash install-snmp.yml
+
+- name: move apt repos
+  logfile: testsuite-remove.log
+  prefix: move
+  exec:
+    - sed -e 's/RUN-HOSTS/FND-CLU/g' -i ~/ardana-ci-tests/move-sources.list.yml
+    - copy.bash move-sources.list.yml
+    - sed -e 's/FND-CLU/RUN-HOSTS/g' -i ~/ardana-ci-tests/move-sources.list.yml
+
+- name: update apt repo
+  logfile: testsuite-upgrade.log
+  prefix: remove
+  exec:
+    - sed -e 's/RUN-HOSTS/FND-CLU/g' -i ~/ardana-ci-tests/change-repo.yml
+    - copy.bash change-repo.yml repo=2016/ardana4.0_alpha-3
+    - sed -e 's/FND-CLU/RUN-HOSTS/g' -i  ~/ardana-ci-tests/change-repo.yml
+
+- name: deploy cluster ardana4.0_alpha-3
+  logfile: testsuite-upgrade.log
+  prefix: deploy-early-cluster
+  playbooks:
+    - FND-CLU-deploy.yml
+
+- name: test haproxy version
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  exec:
+    - validate-orig-version.bash keepalived
+    - validate-version.bash haproxy 1.5.8-3+deb8u1
+
+- name: change apt-repo
+  logfile: testsuite-upgrade.log
+  prefix: change-apt-repo
+  exec:
+    - sed -e 's/RUN-HOSTS/FND-CLU/g' -i ~/ardana-ci-tests/restore-sources.list.yml
+    - copy.bash restore-sources.list.yml
+    - sed -e 's/FND-CLU/RUN-HOSTS/g' -i ~/ardana-ci-tests/restore-sources.list.yml
+
+- name: test major pre upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-CLU-pre-upgrade.yml --limit *c0*
+
+- name: Run base upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - _ardana-upgrade-base.yml --limit *c0*
+
+- name: test  upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-CLU-upgrade.yml --limit *c0*
+
+- name: test major post upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-CLU-post-upgrade.yml --limit *c0*
+
+# This is  testing haproxy upgrade
+- name: test haproxy version
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  exec:
+    - validate-orig-version.bash keepalived
+    - validate-orig-version.bash haproxy
+
+# Now test FND-CLU - keepalived test
+
+- name: remove-cluster
+  logfile: testsuite-remove.log
+  prefix: remove
+  playbooks:
+    - FND-CLU-remove.yml -e automate=true
+
+#This is a workaround for missing dependency for keepalived
+# in earlier kits.
+- name: workaround-install-snmp
+  logfile: testsuite-remove.log
+  prefix: workaround-install-snmp
+  exec:
+    - copy.bash install-snmp.yml
+
+- name: remove apt repos
+  logfile: testsuite-remove.log
+  prefix: remove
+  exec:
+    - sed -e 's/RUN-HOSTS/FND-CLU/g' -i ~/ardana-ci-tests/remove-sources.list.yml
+    - copy.bash remove-sources.list.yml
+    - sed -e 's/FND-CLU/RUN-HOSTS/g' -i ~/ardana-ci-tests/remove-sources.list.yml
+
+- name: update apt repo
+  logfile: testsuite-upgrade.log
+  prefix: remove
+  exec:
+    - sed -e 's/RUN-HOSTS/FND-CLU/g' -i ~/ardana-ci-tests/change-repo.yml
+    - copy.bash change-repo.yml repo=2014/repo.2014-04-18
+    - sed -e 's/FND-CLU/RUN-HOSTS/g' -i  ~/ardana-ci-tests/change-repo.yml
+
+- name: deploy cluster ardana4.0_alpha-3
+  logfile: testsuite-upgrade.log
+  prefix: deploy-early-cluster
+  playbooks:
+    - FND-CLU-deploy.yml
+
+- name: test keepalived version
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  exec:
+    - validate-version.bash keepalived 1:1.2.9-1
+    - validate-version.bash haproxy 1.4.25-1
+
+- name: change apt-repo
+  logfile: testsuite-upgrade.log
+  prefix: change-apt-repo
+  exec:
+    - sed -e 's/RUN-HOSTS/FND-CLU/g' -i ~/ardana-ci-tests/restore-sources.list.yml
+    - copy.bash restore-sources.list.yml
+    - sed -e 's/FND-CLU/RUN-HOSTS/g' -i ~/ardana-ci-tests/restore-sources.list.yml
+
+- name: test major pre upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-CLU-pre-upgrade.yml --limit *c0*
+
+- name: Run base upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - _ardana-upgrade-base.yml --limit *c0*
+
+- name: test  upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-CLU-upgrade.yml --limit *c0*
+
+- name: test major post upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-CLU-post-upgrade.yml --limit *c0*
+
+- name: test keepalived version
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  exec:
+    - validate-orig-version.bash keepalived
+    - validate-orig-version.bash haproxy
+
+- name: test major pre upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-CLU-pre-upgrade.yml
+
+- name: Run base upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - _ardana-upgrade-base.yml
+
+- name: test  upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-CLU-upgrade.yml
+
+- name: test major post upgrade
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  playbooks:
+    - FND-CLU-post-upgrade.yml
+
+- name: test keepalived version
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  exec:
+    - validate-orig-version.bash keepalived
+    - validate-orig-version.bash haproxy
+
+- name: cleanup directories
+  logfile: testsuite-upgrade.log
+  prefix: upgrade
+  exec:
+    - sed -e 's/RUN-HOSTS/FND-CLU/g' -i ~/ardana-ci-tests/cleanup.yml
+    - copy.bash cleanup.yml
+    - sed -e 's/FND-CLU/RUN-HOSTS/g' -i ~/ardana-ci-tests/cleanup.yml
+
+
+####Apache Test no conf####
+#This is to test start and configure
+#dont fail when there is no conf
+#provided
+- name: Test start-noconf
+  logfile: testsuite-start.log
+  prefix: start
+  playbooks:
+    - FND-AP2-start.yml
+
+- name: test apache up
+  logfile: testsuite-status.log
+  prefix: status
+  exec:
+    - validate-apache2.bash
+
+- name: Test enable site
+  logfile: testsuite-enablesite.log
+  prefix: enablesite
+  exec:
+     - create-apache-conf.bash
+
+####Apache test reconfigure####
+- name: Test Noop reconfigure
+  logfile: testsuite-reconfigure-noop.log
+  prefix: reconfigure-noop
+  playbooks:
+    - FND-AP2-reconfigure.yml
+
+#TO-DO: This should test that apache hasnt restart
+- name: Test apache up
+  logfiel: testsuite-status.log
+  prefix: status
+  exec:
+    - validate-apache2.bash
+#TO-DO need a general update-conf
+- name: Update conf file change
+  logfile: testsuite-reconfigure-conf-change.log
+  prefix: update-conf-all
+  exec:
+    - update-conf.bash apache2_loglevel info debug ./apache/defaults.yml
+
+- name: Test reconfigure
+  logfile: testsuite-reconfigure.log
+  prefix: reconfigure
+  playbooks:
+    - FND-AP2-reconfigure.yml
+
+- name: Test Conf File change
+  logfile: testsuite-reconfigure-conf-change.log
+  prefix: test-apache-conf
+  exec:
+    - test-conf.bash 'LogLevel debug' /etc/apache2/apache2.conf
+
+- name: reset conf file change
+  logfile: testsuite-reconfigure-conf-change.log
+  prefix: update-conf-all
+  exec:
+    - update-conf.bash apache2_loglevel debug info ./apache/defaults.yml
+
+- name: Test reconfigure limit
+  logfile: testsuite-reconfigure.log
+  prefix: reconfigure
+  playbooks:
+    - FND-AP2-reconfigure.yml --limit=*cp1*
+
+#TO-DO: change this to use control plane as arg
+#and check the value isnt changed on cp2
+- name: Test Conf File change
+  logfile: testsuite-reconfigure-conf-change.log
+  prefix: test-apache-conf
+  exec:
+    - test-conf.bash 'LogLevel info' /etc/apache2/apache2.conf
+
+- name: Test fix conf values
+  logfile: testsuite-reconfigure.log
+  prefix: reconfigure
+  playbooks:
+    - FND-AP2-reconfigure.yml
+
+####Apache test stop and start####
+- name: Test apache-stop
+  logfile: testsuite-stop.log
+  prefix: stop
+  playbooks:
+    - FND-AP2-stop.yml
+
+- name: Test apache down
+  logfiel: testsuite-status.log
+  prefix: status
+  exec:
+    - validate-apache2-down.bash
+
+- name: Test apache-start
+  logfile: testsuite-start.log
+  prefix: start
+  playbooks:
+    - FND-AP2-start.yml
+
+- name: Test apache up
+  logfiel: testsuite-status.log
+  prefix: status
+  exec:
+    - validate-apache2.bash
+
+- name: Test apache-stop
+  logfile: testsuite-stop.log
+  prefix: stop
+  playbooks:
+    - FND-AP2-stop.yml --limit=project-cp1-c0-m1-mgmt
+
+- name: Test apache down
+  logfiel: testsuite-status.log
+  prefix: status
+  exec:
+    - validate-apache2-down.bash
+
+- name: Test apache-start
+  logfile: testsuite-start.log
+  prefix: start
+  playbooks:
+    - FND-AP2-start.yml --limit=project-cp1-c0-m1-mgmt
+
+- name: Test apache up
+  logfiel: testsuite-status.log
+  prefix: status
+  exec:
+    - validate-apache2.bash
+
+####Apache test reboot####
+- name: Test reboot server2
+  logfile: testsuite-reboot.log
+  prefix: reboot-server2
+  vms:
+    - reboot: server2
+
+- name: Test apache up
+  logfile: testsuite-status.log
+  prefix: status
+  exec:
+    - validate-apache2.bash
+
+
+####Apache cleanup####
+- name: Test disable site
+  logfile: testsuite-disable.log
+  prefix: cleanup
+  exec:
+    - disable-site.bash "test.conf"
+
+- name: Test reconfigure
+  logfile: testsuite-reconfigure.log
+  prefix: reconfigure
+  playbooks:
+    - FND-AP2-reconfigure.yml
+
+###########keepalived + haproxy###########
+
+####Test CLU stop and start####
+- name: Test CLU stop
+  logfile: testsuite-CLU-stop.log
+  prefix: stop
+  playbook:
+    - FND-CLU-stop.yml
+
+- name: Test CLU down
+  logfile: testsuite-CLU-down.log
+  prefix: check-status
+  exec:
+    - validate-CLU-down.bash
+
+- name: Test CLU start
+  logfile: testsuite-CLU-start.log
+  prefix: start
+  playbooks:
+    - FND-CLU-start.yml
+
+- name: Test CLU up
+  logfile: testsuite-CLU-status.log
+  prefix: status
+  exec:
+    - validate-CLU.bash
+
+- name: Test CLU stop with limit
+  logfile: testsuite-CLU-stop.log
+  prefix: stop
+  playbook:
+    - FND-CLU-stop.yml --limit=project-cp1-c0-m1-mgmt
+
+- name: Test CLU start with limit
+  logfile: testsuite-CLU-start.log
+  prefix: start
+  playbooks:
+    - FND-CLU-start.yml --limit=project-cp1-c0-m1-mgmt
+
+- name: Test CLU up
+  logfile: testsuite-CLU-status.log
+  prefix: status
+  exec:
+    - validate-CLU.bash
+
+####Test CLU reboot####
+- name: Test reboot server2
+  logfile: testsuite-reboot.log
+  prefix: reboot-server2
+  vms:
+    - reboot: server2
+
+- name: Test CLU start
+  logfile: testsuite-CLU-start.log
+  prefix: start
+  playbooks:
+    - FND-CLU-start.yml
+
+- name: Test CLU up
+  logfile: testsuite-CLU-status.log
+  prefix: status
+  exec:
+    - validate-CLU.bash
+
+####Test CLU reconfigure####
+
+- name: Test reconfigure NOOP
+  logfile: testsuite-reconfigure.log
+  prefix: reconfigure
+  playbooks:
+    - FND-CLU-reconfigure.yml
+
+- name: Update password for single control plane
+  logfile: testsuite-reconfigure-pwd-change.log
+  prefix: update-pwd
+  exec:
+    - update-pwd.bash ~/ardana-ci-tests/pwd_change_cp1.yml
+##note to self also update keepalived offset
+- name: Test reconfigure NOOP
+  logfile: testsuite-reconfigure.log
+  prefix: reconfigure
+  playbooks:
+    - FND-CLU-reconfigure.yml
+
+- name: Test Conf File change
+  logfile: testsuite-reconfigure-conf-change.log
+  prefix: test-apache-conf
+  exec:
+    - test-conf.bash 'mynewpassword' /etc/haproxy/haproxy.cfg
+
+- name: Test Conf File change
+  logfile: testsuite-reconfigure-conf-change.log
+  prefix: test-apache-conf
+  exec:
+    - test-conf.bash 'mynewpassword' /etc/keepalived/keepalived.conf
+
+- name: Test vrrp_id change
+  logfile: testsuite-reconfigure-keepalived.log
+  prefix: test-vrrp-change
+  exec:
+    - update-conf.bash keepalived_vrrp_offset 0 55 ./keepalived/defaults.yml
+
+- name: Test reconfigure limit
+  logfile: testsuite-reconfigure.log
+  prefix: reconfigure
+  playbooks:
+    - FND-CLU-reconfigure.yml --limit=*cp1*
+
+- name: Test Conf File change
+  logfile: testsuite-reconfigure-conf-change.log
+  prefix: test-apache-conf
+  exec:
+    - test-conf.bash 'virtual_router_id 56' /etc/keepalived/keepalived.conf
+
+- name: Test vrrp_id change
+  logfile: testsuite-reconfigure-keepalived.log
+  prefix: test-vrrp-change
+  exec:
+    - update-conf.bash keepalived_vrrp_offset 55 0 ./keepalived/defaults.yml
+
+- name: Test reconfigure limit
+  logfile: testsuite-reconfigure.log
+  prefix: reconfigure
+  playbooks:
+    - FND-CLU-reconfigure.yml
+
+- name: Test CLU up
+  logfile: testsuite-CLU-status.log
+  prefix: status
+  exec:
+    - validate-CLU.bash
+
+# TEST: replace node procedure
+- name: CLU remove
+  logfile: remove-nodes.log
+  prefix: remove CLU
+  playbooks:
+    - FND-CLU-remove.yml --limit=project-cp2-c1-m2-mgmt -e automate=true
+
+- name: apache-remove
+  logfile: remove-nodes.log
+  prefix: remove-apache
+  playbooks:
+    - FND-AP2-remove.yml --limit=project-cp2-c1-m2-mgmt -e automate=true
+
+- name: remove-nodes
+  logfile: remove.log
+  prefix: remove-nodes
+  exec:
+    - remove-node-test.bash server3 SERVER3-ROLE cluster1
+
+- name: run-cp
+  logfile: remove.log
+  prefix: run-cp
+  exec:
+    - run-cp.bash
+
+- name: add-nodes
+  logfile: add.log
+  prefix: add-nodes
+  exec:
+    - add-node-test.bash server3 192.168.10.5 SERVER3-ROLE RACK2 8a:8e:64:55:43:76 192.168.9.5 cluster1
+
+- name: run-cp
+  logfile: remove.log
+  prefix: run-cp
+  exec:
+    - run-cp.bash
+
+- name: CLU-deploy
+  logfile: deploy.log
+  prefix: deploy-CLU
+  playbooks:
+    - FND-CLU-deploy.yml --limit=project-cp2-c1-m2-mgmt
+
+- name: apache-deploy
+  logfile: deploy.log
+  prefix: deploy-apache
+  playbooks:
+    - FND-AP2-deploy.yml --limit=project-cp2-c1-m2-mgmt
+
+- name: CLU-status
+  logfile: status.log
+  prefix: CLU-status
+  playbooks:
+    - FND-CLU-status.yml --limit=project-cp2-c1-m2-mgmt
+
+- name: apache-status
+  logfile: status.log
+  prefix: apache-status
+  playbooks:
+    - FND-AP2-status.yml --limit=project-cp2-c1-m2-mgmt

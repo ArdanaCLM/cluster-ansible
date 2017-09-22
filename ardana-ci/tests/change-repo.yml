@@ -1,0 +1,42 @@
+#
+# (c) Copyright 2016 Hewlett Packard Enterprise Development LP
+# (c) Copyright 2017 SUSE LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+---
+- hosts: RUN-HOSTS
+  tasks:
+  - name: create 192_168_10_3_79_ardana_hlinux.list
+    become: yes
+    file:
+      path: /etc/apt/sources.list.d/192_168_10_3_79_ardana_hlinux.list
+      state: touch
+
+  - name: change apt-repo
+    become: yes
+    lineinfile:
+      dest: /etc/apt/sources.list.d/192_168_10_3_79_ardana_hlinux.list
+      line: "deb [arch=amd64] http://apt.suse.provo.cloud/hLinuxArchive/{{ repo }} cattleprod main contrib non-free"
+
+  - name: install aptitude
+    become: yes
+    apt:
+      name: aptitude
+      update_cache: yes
+
+# module version of this seems a no-op.  maybe https://github.com/ansible/ansible-modules-core/issues/1497
+  - name: update and upgrade apt packages
+    become: yes
+    shell: sudo apt-get update
+
