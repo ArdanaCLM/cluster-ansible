@@ -1,5 +1,5 @@
 #
-# (c) Copyright 2016 Hewlett Packard Enterprise Development LP
+# (c) Copyright 2016-2017 Hewlett Packard Enterprise Development LP
 # (c) Copyright 2017 SUSE LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -16,7 +16,7 @@
 #
 ---
 # Purge old major packages if they are there
-- name: haproxy | remove_packages | Remove haproxy Packages
+- name: haproxy | remove_packages | Debian - Remove haproxy packages
   become: yes
   apt:
     name: haproxy
@@ -24,15 +24,25 @@
     state: absent
     purge: yes
     force: yes
+  when: ansible_os_family == 'Debian'
 
 # Autoremove dependent packages (Not yet supported by the apt module)
 #  https://github.com/ansible/ansible-modules-core/issues/1976
-- name: haproxy | remove_packages | Remove Dependent haproxy packages
+- name: haproxy | remove_packages | Debian - Remove Dependent haproxy packages
   become: yes
   shell: /usr/bin/apt-get -y autoremove haproxy
   environment:
     DEBIAN_FRONTEND: noninteractive
+  when: ansible_os_family == 'Debian'
 
 # Directories/files left behind after this are
 #  /var/lib/haproxy/dev
 #  /etc/haproxy
+
+- name: haproxy | remove_packages | Suse - Remove haproxy packages
+  become: yes
+  command: zypper remove --no-confirm --clean-deps haproxy
+  register: _haproxy_remove_result
+  failed_when: _haproxy_remove_result.rc != 0 and
+      _haproxy_remove_result.rc != 104
+  when: ansible_os_family == 'Suse'
