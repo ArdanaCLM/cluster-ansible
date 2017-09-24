@@ -1,5 +1,5 @@
 #
-# (c) Copyright 2016 Hewlett Packard Enterprise Development LP
+# (c) Copyright 2016-2017 Hewlett Packard Enterprise Development LP
 # (c) Copyright 2017 SUSE LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -263,7 +263,7 @@
   prefix: remove
   exec:
     - sed -e 's/RUN-HOSTS/FND-CLU/g' -i ~/ardana-ci-tests/change-repo.yml
-    - copy.bash change-repo.yml repo=2014/repo.2014-04-18
+    - copy.bash change-repo.yml repo=2014/repo.2014-11-24
     - sed -e 's/FND-CLU/RUN-HOSTS/g' -i  ~/ardana-ci-tests/change-repo.yml
 
 - name: deploy cluster ardana4.0_alpha-3
@@ -276,8 +276,8 @@
   logfile: testsuite-upgrade.log
   prefix: upgrade
   exec:
-    - validate-version.bash keepalived 1:1.2.9-1
-    - validate-version.bash haproxy 1.4.25-1
+    - validate-version.bash keepalived 1:1.2.13-1
+    - validate-version.bash haproxy 1.5.8-1
 
 - name: change apt-repo
   logfile: testsuite-upgrade.log
