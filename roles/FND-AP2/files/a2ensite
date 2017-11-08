@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash --restricted
 #
 # (c) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
 # (c) Copyright 2017 SUSE LLC
@@ -16,17 +16,21 @@
 # under the License.
 #
 
+PATH=/usr/sbin:/usr/bin
+IFS=$' \t\n'
+
 set -e
 set -o pipefail
 
-SCRIPT_NAME=$(basename $0)
 WORK_DIR=/etc/apache2
+
+SCRIPT_NAME="$(basename "${0}")"
 
 usage() {
     set +x
-    echo "$SCRIPT_NAME <site_name>[.conf]"
+    echo "${SCRIPT_NAME} <site_name>[.conf]"
     echo
-    if [ "$SCRIPT_NAME" == a2dissite ]; then
+    if [ "${SCRIPT_NAME}" == a2dissite ]; then
         echo "Disable Apache2 site configuration by removing a symlink"
         echo "${WORK_DIR}/sites-enabled/<site_name>.conf"
     else
@@ -41,19 +45,19 @@ if [ $# -ne 1 ]; then
     exit 1
 fi
 
-SITE_NAME=$(basename ${1%.conf})
-SITE_ENABLED=${WORK_DIR}/sites-enabled/${SITE_NAME}.conf
-SITE_AVAILABLE=${WORK_DIR}/sites-available/${SITE_NAME}.conf
+SITE_NAME="$(basename "${1}" .conf)"
+SITE_ENABLED="${WORK_DIR}/sites-enabled/${SITE_NAME}.conf"
+SITE_AVAILABLE="${WORK_DIR}/sites-available/${SITE_NAME}.conf"
 
-if ! [ -e ${SITE_AVAILABLE} ]; then
+if ! [ -e "${SITE_AVAILABLE}" ]; then
     echo "ERROR: configuration file ${SITE_AVAILABLE} not found"
     exit 1
 fi
 
-if [ "$SCRIPT_NAME" == a2dissite ]; then
-    if [ -e ${SITE_ENABLED} ]; then
-        if [ -h ${SITE_ENABLED} ]; then
-            rm ${SITE_ENABLED}
+if [ "${SCRIPT_NAME}" == a2dissite ]; then
+    if [ -e "${SITE_ENABLED}" ]; then
+        if [ -h "${SITE_ENABLED}" ]; then
+            rm "${SITE_ENABLED}"
             echo "Site ${SITE_NAME} disabled."
             echo "To activate the new configuration, you need to run:"
             echo "  service apache2 reload"
@@ -67,8 +71,8 @@ if [ "$SCRIPT_NAME" == a2dissite ]; then
         exit 0
     fi
 else
-    if [ -e ${SITE_ENABLED} ]; then
-        if [ -h ${SITE_ENABLED} ]; then
+    if [ -e "${SITE_ENABLED}" ]; then
+        if [ -h "${SITE_ENABLED}" ]; then
             echo "Site ${SITE_NAME} already enabled"
             exit 0
         else
@@ -76,8 +80,7 @@ else
             exit 1
         fi
     else
-        cd ${WORK_DIR}/sites-enabled
-        ln -s ../sites-available/${SITE_NAME}.conf ${SITE_NAME}.conf
+        ln --symbolic "../sites-available/${SITE_NAME}.conf" "${WORK_DIR}/sites-enabled/${SITE_NAME}.conf"
         echo "Site ${SITE_NAME} enabled."
         echo "To activate the new configuration, you need to run:"
         echo "  service apache2 reload"

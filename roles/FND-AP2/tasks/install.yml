@@ -46,7 +46,7 @@
   copy:
     src: a2ensite
     dest: /usr/sbin/a2ensite
-    mode: 0755
+    mode: 0500
   when: ansible_os_family == 'Suse'
 
 - name: FND-AP2 | install | Suse - install a2dissite utility
