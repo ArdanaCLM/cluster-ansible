@@ -41,6 +41,19 @@
     name: apache2
     enabled: yes
 
+# on SLES, the default soft limit for open files for apache2 processes is
+# 1024. This number is way too limit consider how many vhost it serves.
+# i.e. keystone-admin wsgi itself can spawn off 5 process and each process
+# can open up 50+ files. We definitely need to bump it up.
+- name: FND-AP2 | install | Suse - Increase open files limit
+  become: yes
+  lineinfile:
+    dest: /etc/systemd/system/apache.service
+    line: "LimitNOFILE={{ apache_process_open_files_limit }}"
+    insertafter: "^ExecStop=.*"
+    state: present
+  when: ansible_os_family == 'Suse'
+
 - name: FND-AP2 | install | Suse - install a2ensite utility
   become: yes
   copy:

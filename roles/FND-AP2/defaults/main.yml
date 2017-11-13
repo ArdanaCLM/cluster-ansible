@@ -28,3 +28,5 @@ apache2_iptables_chain: apache2-temp
 apache2_sitesenabled: False
 
 max_request_workers: 150
+
+apache_process_open_files_limit: 65536
