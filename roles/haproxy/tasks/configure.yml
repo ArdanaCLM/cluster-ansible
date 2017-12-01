@@ -42,13 +42,6 @@
     state: directory
     mode: 0755
 
-- name: haproxy | configure | Make sure /run/haproxy directory exists
-  become: yes
-  file:
-    path: /run/haproxy
-    state: directory
-    mode: 0755
-
 - name: haproxy | configure | Add FND-CLU config
   become: yes
   template:
