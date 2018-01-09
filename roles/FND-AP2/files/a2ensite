@@ -1,4 +1,4 @@
-#!/bin/bash --restricted
+#!/bin/bash
 #
 # (c) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
 # (c) Copyright 2017 SUSE LLC
@@ -16,15 +16,22 @@
 # under the License.
 #
 
-PATH=/usr/sbin:/usr/bin
+export PATH=/usr/sbin:/usr/bin
+set -r
+
 IFS=$' \t\n'
 
 set -e
 set -o pipefail
+set -o noglob
 
 WORK_DIR=/etc/apache2
 
 SCRIPT_NAME="$(basename "${0}")"
+if [[ "$SCRIPT_NAME" =~ "/" || "$SCRIPT_NAME" =~ ".." ]] ; then
+    echo "Illegal script name."
+    exit 1
+fi
 
 usage() {
     set +x
