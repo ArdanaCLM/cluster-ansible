@@ -159,6 +159,8 @@
   register: ardana_notify_apache2_reload_required
   when: ansible_os_family == 'Suse'
 
+# TODO(colleen) Once all playbooks are converted to use OS-native Apache
+# configuration, this can be removed.
 - name: FND-AP2 | configure | Suse - include conf files in sites-enabled
   become: yes
   lineinfile:
@@ -181,7 +183,7 @@
 - name: FND-AP2 | configure | Add any sites to be enabled
   become: yes
   template:
-    dest: /etc/apache2/sites-available/{{ item.key }}
+    dest: "{{ apache2_vhost_dir }}/{{ item.key }}"
     src: sites-enabled.conf.j2
     mode: 0644
   with_dict: FND_AP2_sites_enabled | default({})
@@ -194,3 +196,4 @@
     unchanged_regexp: " already "
   register: ardana_notify_apache2_restart_required
   with_dict: FND_AP2_sites_enabled | default({})
+  when: ansible_os_family == 'Debian'

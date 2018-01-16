@@ -21,3 +21,13 @@
     - "{{ ansible_distribution | lower }}.yml"
     - "{{ ansible_os_family | lower }}.yml"
     - "default.yml"
+
+- name: FND-AP2 | main | Set apache2 vhost dir fact (SUSE)
+  set_fact:
+    apache2_vhost_dir: /etc/apache2/vhosts.d
+  when: ansible_os_family == 'Suse'
+
+- name: FND-AP2 | main | Set apache2 vhost dir fact (Hlinux)
+  set_fact:
+    apache2_vhost_dir: /etc/apache2/sites-available
+  when: ansible_os_family == 'Debian'
