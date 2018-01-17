@@ -16,6 +16,18 @@
 # under the License.
 #
 #}
+<Directory "{{ www_root }}">
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        <IfModule !mod_access_compat.c>
+                Require all granted
+        </IfModule>
+        <IfModule mod_access_compat.c>
+                Order allow,deny
+                Allow from all
+        </IfModule>
+</Directory>
+
 <Directory "/var/www">
         Options Indexes FollowSymLinks
         AllowOverride All
