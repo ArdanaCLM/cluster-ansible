@@ -57,7 +57,7 @@
   become: yes
   shell: |
     apache2ctl -D DUMP_VHOSTS 2>/dev/null |
-    awk '/sites-enabled/ \
+    awk '/{{ apache2_vhost_dir | regex_replace('/', '\/') }}/ \
     {IP = "127.0.0.1"; \
      if(NF > 2 && \
         $2 ~ /^[0-9]?[0-9]?[0-9]\.[0-9]?[0-9]?[0-9]\.[0-9]?[0-9]?[0-9]\.[0-9]?[0-9]?[0-9]$/) \
@@ -129,7 +129,7 @@
 - name: FND-AP2 | start_reload | Check if keystone site enabled
   become: yes
   stat:
-    path: /etc/apache2/sites-enabled/keystone-modwsgi.conf
+    path: "{{ apache2_vhost_dir }}/keystone-modwsgi.conf"
   register: keystone_site_file
 
 - include: "{{ playbook_dir }}/roles/KEY-API/tasks/status.yml"
