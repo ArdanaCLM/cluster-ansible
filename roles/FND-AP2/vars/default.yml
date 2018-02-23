@@ -29,3 +29,4 @@ apache2_modules:
 apache2_listen_conf: /etc/apache2/ports.conf
 apache2_global_conf: /etc/apache2/apache2.conf
 www_root: /var/www
+apache2_vhost_dir: /etc/apache2/sites-available

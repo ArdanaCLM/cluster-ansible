@@ -33,3 +33,4 @@ apache2_modules:
 apache2_listen_conf: /etc/apache2/listen.conf
 apache2_global_conf: /etc/apache2/server-tuning.conf
 www_root: /srv/www
+apache2_vhost_dir: /etc/apache2/vhosts.d
