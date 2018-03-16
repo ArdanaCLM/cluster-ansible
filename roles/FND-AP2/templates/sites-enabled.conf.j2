@@ -1,7 +1,7 @@
 {#
 #
 # (c) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
-# (c) Copyright 2017 SUSE LLC
+# (c) Copyright 2017-2018 SUSE LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -63,4 +63,16 @@ Listen "{{ apache2_listen_address }}:{{ item.value.port }}"
         Allow from all
 </Directory>
 
+{% if item.value.additional_dirs is defined %}
+{% for alias, dir in item.value.additional_dirs.items() %}
+Alias "/{{ alias }}" "{{ dir }}"
+<Directory {{ dir }}>
+        Options Indexes FollowSymLinks
+        AllowOverride None
+        Require all granted
+        Order allow,deny
+        Allow from all
+</Directory>
+{% endfor %}
+{% endif %}
 # vim: syntax=apache ts=4 sw=4 sts=4 sr noet
