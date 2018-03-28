@@ -1,6 +1,5 @@
 #
-# (c) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
-# (c) Copyright 2017-2018 SUSE LLC
+# (c) Copyright 2018 SUSE LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -15,8 +14,14 @@
 # under the License.
 #
 ---
-- name: haproxy | install | Install haproxy packages
-  become: yes
-  package:
-    name: haproxy
-    state: present
+- name: FND-CLU | _schedule_restart | Schedule a restart for haproxy
+  debug:
+    msg: "Trigger a change notification for haproxy"
+  changed_when: true
+  register: ardana_notify_haproxy_restart_required
+
+- name: FND-CLU | _schedule_restart | Schedule a restart for keepalived
+  debug:
+    msg: "Trigger a change notification for keepalived"
+  changed_when: true
+  register: ardana_notify_keepalived_restart_required
