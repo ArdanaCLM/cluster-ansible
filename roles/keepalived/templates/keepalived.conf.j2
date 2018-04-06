@@ -1,7 +1,7 @@
 {#
 #
 # (c) Copyright 2015-2016 Hewlett Packard Enterprise Development LP
-# (c) Copyright 2017 SUSE LLC
+# (c) Copyright 2017-2018 SUSE LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -19,8 +19,13 @@
 # Configuration file for keepalived
 # This configuration is described in http://www.keepalived.org/pdf/UserGuide.pdf
 
+global_defs {
+    script_user root
+    enable_script_security
+}
+
 vrrp_script chk_haproxy {
-  script "killall -0 haproxy"
+  script "/usr/bin/systemctl -q is-active haproxy.service"
   interval 3
   rise 2
   fall 2
