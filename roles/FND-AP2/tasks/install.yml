@@ -27,14 +27,6 @@
   include: stop.yml
   when: _install_apache_result.changed
 
-- name: FND-AP2 | install | Fix up unit file
-  include: ../../systemd-sysv-fixup/tasks/fix-unit.yml
-  vars:
-    units:
-      - apache2
-    systemd_fixup_start_on_reboot: True
-  when: ansible_os_family == 'Debian'
-
 - name: FND-AP2 | install | Enable apache2 service
   become: yes
   service:

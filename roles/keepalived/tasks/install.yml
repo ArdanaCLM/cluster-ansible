@@ -23,10 +23,3 @@
   with_items:
     - keepalived
     - psmisc
-
-- name: keepalived | install | Debian - Fix up unit file
-  include: ../../systemd-sysv-fixup/tasks/fix-unit.yml
-  vars:
-    units:
-      - keepalived
-  when: ansible_os_family == 'Debian'

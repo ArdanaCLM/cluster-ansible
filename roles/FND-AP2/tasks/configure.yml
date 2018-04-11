@@ -35,17 +35,7 @@
     state: present
   register: ardana_notify_apache2_reload_required
 
-- name: FND-AP2 | configure | Debian - Set loglevel
-  become: yes
-  lineinfile:
-    line: "LogLevel {{ apache2_loglevel }}"
-    regexp: "^LogLevel"
-    dest: "/etc/apache2/apache2.conf"
-    state: present
-  register: ardana_notify_apache2_reload_required
-  when: ansible_os_family == 'Debian'
-
-- name: FND-AP2 | configure | Suse - Set loglevel
+- name: FND-AP2 | configure | Set loglevel
   become: yes
   lineinfile:
     line: 'APACHE_LOGLEVEL="{{ apache2_loglevel }}"'
@@ -57,24 +47,6 @@
 
 # Apache2 modules
 
-# These lines are a workaround for apache problem
-# identified in KEYSTONE-297
-- name:  FND-AP2 | configure | Debian - disable mpm_event
-  become: yes
-  apache2_module:
-    name: mpm_event
-    state: absent
-  register: ardana_notify_apache2_restart_required
-  when: ansible_os_family == 'Debian'
-
-- name:  FND-AP2 | configure | Debian - enable mpm_worker
-  become: yes
-  apache2_module:
-    name: mpm_worker
-    state: present
-  register: ardana_notify_apache2_restart_required
-  when: ansible_os_family == 'Debian'
-
 - name: FND-AP2 | configure | Suse - switch to mpm_worker
   become: yes
   lineinfile:
@@ -82,7 +54,7 @@
     regexp: "^APACHE_MPM=.*"
     dest: /etc/sysconfig/apache2
     state: present
-  register: ardana_notify_apache2_reload_required
+  register: ardana_notify_apache2_restart_required
   when: ansible_os_family == 'Suse'
 
 # Suse may have proxy_http module listed before proxy. This causes errors
@@ -107,17 +79,6 @@
   with_items: apache2_modules
   register: ardana_notify_apache2_restart_required
 
-# Update config for mpm_worker
-- name: FND-AP2 | configure | Debian - set MaxRequestWorkers
-  become: yes
-  lineinfile:
-    line: "\tMaxRequestWorkers {{ max_request_workers }}"
-    regexp: "MaxRequestWorkers"
-    dest: "/etc/apache2/mods-available/mpm_worker.conf"
-    state: present
-  register: ardana_notify_apache2_reload_required
-  when: ansible_os_family == 'Debian'
-
 - name: FND-AP2 | configure | Suse - set MaxClients
   become: yes
   replace:
@@ -126,18 +87,6 @@
     dest: "/etc/apache2/server-tuning.conf"
   register: ardana_notify_apache2_reload_required
   when: ansible_os_family == 'Suse'
-
-# Apache sites
-- name: FND-AP2 | configure | Debian - disable the default sites
-  become: yes
-  shell_changed_regexp:
-    command: "a2dissite {{ item }}"
-    unchanged_regexp: " already "
-  with_items:
-    - 000-default
-    - default-ssl
-  register: ardana_notify_apache2_restart_required
-  when: ansible_os_family == 'Debian'
 
 - name: FND-AP2 | configure | Suse - disable the default site
   become: yes
@@ -176,12 +125,3 @@
     mode: 0644
   with_dict: FND_AP2_sites_enabled | default({})
   register: ardana_notify_apache2_restart_required
-
-- name: FND-AP2 | configure | enable sites
-  become: yes
-  shell_changed_regexp:
-    command: a2ensite "{{ item.key }}"
-    unchanged_regexp: " already "
-  register: ardana_notify_apache2_restart_required
-  with_dict: FND_AP2_sites_enabled | default({})
-  when: ansible_os_family == 'Debian'
