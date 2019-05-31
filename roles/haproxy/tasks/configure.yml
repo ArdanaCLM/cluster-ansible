@@ -15,7 +15,7 @@
 # under the License.
 #
 ---
-- name: haproxy | configure | Ensure binding to non-up interfaces when no vlan
+- name: haproxy | configure | Ensure binding to non-up interfaces on ipv4
   become: yes
   sysctl:
     state: present
@@ -23,6 +23,16 @@
     value: 1
     sysctl_set: yes
     reload: yes
+
+- name: haproxy | configure | Ensure binding to non-up interfaces on ipv6
+  become: yes
+  sysctl:
+    state: present
+    name: 'net.ipv6.ip_nonlocal_bind'
+    value: 1
+    sysctl_set: yes
+    reload: yes
+
 
 - name: haproxy | configure | copy /etc/rsyslog.d/50-ardana-haproxy.conf
   template:
