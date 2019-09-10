@@ -20,6 +20,7 @@ apache2_packages:
   - apache2-worker
   - apache2-mod_wsgi
   - shibboleth-sp
+  - apache2-mod_auth_openidc
 
 apache2_modules:
   - access_compat
@@ -29,6 +30,7 @@ apache2_modules:
   - shib2
   - proxy
   - proxy_http
+  - auth_openidc
 
 apache2_listen_conf: /etc/apache2/listen.conf
 apache2_global_conf: /etc/apache2/server-tuning.conf
