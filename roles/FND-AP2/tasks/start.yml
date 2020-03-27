@@ -15,28 +15,7 @@
 # under the License.
 #
 ---
-- name: FND-AP2 | start | Check if apache2ctl exists
-  stat:
-    path: /usr/sbin/apache2ctl
-  register: _apache2ctl_stat_result
-
-- name:  FND-AP2 | start | Check if any sites enabled
-  command: "apache2ctl -t -D DUMP_VHOSTS"
-  become: yes
-  register: _apache2_sites_result
-  when: _apache2ctl_stat_result.stat.exists
-
-- name:  FND-AP2 | start | Indicate Sites configured
-  debug:
-    msg: "Apache has Sites configured"
-  when: _apache2_sites_result is defined and
-        (_apache2_sites_result.stdout_lines | length > 1)
-
-- name: FND-AP2 | start | Set sites enabled to True
-  set_fact:
-    apache2_sitesenabled: True
-  when: _apache2_sites_result is defined and
-        (_apache2_sites_result.stdout_lines | length > 1)
+- include: check_sites_enabled.yml
 
 - name: FND-AP2 | start | Restart Apache
   become: yes
@@ -45,7 +24,7 @@
     state: restarted
   when: ardana_notify_apache2_restart_required is defined and
         ardana_notify_apache2_restart_required.changed and
-        apache2_sitesenabled == True
+        apache2_sitesenabled | bool
   register: _apache2_restarted_result
 
 - name: FND-AP2 | start | Reload Apache
@@ -55,7 +34,7 @@
     state: reloaded
   when: ardana_notify_apache2_reload_required is defined and
         ardana_notify_apache2_reload_required.changed and
-        apache2_sitesenabled == True and
+        apache2_sitesenabled | bool and
         not _apache2_restarted_result.changed
 
 - name: FND-AP2 | start | Ensure that Apache is started
@@ -63,7 +42,7 @@
   service:
     name: apache2
     state: started
-  when: apache2_sitesenabled == True
+  when: apache2_sitesenabled | bool
 
 - name: FND-AP2 | start | Wait until Apache started status OK
   become: yes
@@ -72,4 +51,4 @@
   until: (_status_result | success)
   retries: 5
   delay: 5
-  when: apache2_sitesenabled == True
+  when: apache2_sitesenabled | bool
