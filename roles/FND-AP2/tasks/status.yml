@@ -15,34 +15,13 @@
 # under the License.
 #
 ---
-- name: FND-AP2 | status | Check if apache2ctl exists
-  stat:
-    path: /usr/sbin/apache2ctl
-  register: _apache2ctl_stat_result
-
-- name:  FND-AP2 | status | Check if any sites enabled
-  command: "apache2ctl -t -D DUMP_VHOSTS"
-  become: yes
-  register: _apache2_sites_result
-  when: _apache2ctl_stat_result.stat.exists
-
-- name:  FND-AP2 | status | Indicate Sites configured
-  debug:
-    msg: "Apache has Sites configured"
-  when: _apache2_sites_result is defined and
-        (_apache2_sites_result.stdout_lines | length > 1)
-
-- name: FND-AP2 | status | Set sites enabled to True
-  set_fact:
-    apache2_sitesenabled: True
-  when: _apache2_sites_result is defined and
-        (_apache2_sites_result.stdout_lines | length > 1)
+- include: check_sites_enabled.yml
 
 - name: FND-AP2 | status | Check system service running
   command: systemctl status "{{ apache2_service }}"
   changed_when: false
   register: _apache2_status_result
-  when: apache2_sitesenabled == True
+  when: apache2_sitesenabled | bool
 
 - name: FND-AP2 | status | Report status of "{{ apache2_service }}"
   fail:
@@ -52,4 +31,4 @@
       {{ _apache2_status_result.stdout }}
       {{ _apache2_status_result.stderr }}
   when: (_apache2_status_result | failed) and
-        apache2_sitesenabled == True
+        apache2_sitesenabled | bool
